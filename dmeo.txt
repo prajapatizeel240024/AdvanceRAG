@@ -1,0 +1,7 @@
+Build the RAG pipeline in which the end user policy quesiton and get the grounded answers small RAG 
+API,
+langchain or langhgrpah framework 
+
+Web page were to ask the user 
+
+RAG datasource trvel policy 

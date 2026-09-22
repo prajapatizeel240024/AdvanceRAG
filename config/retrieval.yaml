@@ -1,0 +1,176 @@
+# Retrieval and ranking parameters.
+#
+# ── Where this config is actually consumed ──────────────────────────────────
+# Almost nowhere in Python. These values are passed as arguments into the SQL
+# functions `fn_hybrid_search`, `fn_vector_search` and `fn_lexical_search`, which
+# is where the ranking mathematics lives. The Python retrieve node builds a
+# parameter tuple and issues one SELECT; it does not rank, fuse, score or
+# deduplicate. That division is the "logic in the database, thin API" rule
+# applied to the part of the system where it matters most.
+
+version: 1.0.0
+
+# ── Vector storage ──────────────────────────────────────────────────────────
+vector:
+  dimensions: 1536
+  # `vector` vs `halfvec`, decided empirically on this machine (PG 16.14,
+  # pgvector 0.8.6):
+  #   vector(3072)  + hnsw -> ERROR: column cannot have more than 2000 dimensions
+  #   halfvec(3072) + hnsw -> OK  (halfvec indexes up to 4096 dims)
+  #   vector(1536)  + hnsw -> OK
+  # We take vector(1536): MRL-truncated embeddings at 1536 retain effectively
+  # all retrieval quality for a corpus this size, use half the storage of 3072,
+  # and keep the ordinary float32 operator family. Switch `column_type` to
+  # halfvec and `dimensions` to 3072 to trade storage for the native embedding.
+  column_type: vector              # vector | halfvec
+  distance: cosine
+  operator_class: vector_cosine_ops
+  operator: "<=>"
+
+  index:
+    method: hnsw
+    m: 16
+    ef_construction: 64
+    # Query-time breadth. Raising it improves recall at the cost of latency.
+    # Applied per-transaction via `SET LOCAL hnsw.ef_search` inside the search
+    # function — verified that SET auto-loads the pgvector module, so no
+    # explicit LOAD is needed.
+    ef_search: 100
+
+  # pgvector 0.8 iterative scan. This is the fix for the filtered-search
+  # pathology: with a restrictive metadata filter, a plain HNSW scan returns its
+  # k nearest and THEN filters, often leaving far fewer than k rows — silently
+  # degrading recall exactly when the router has narrowed the search usefully.
+  # Iterative scan keeps pulling until k rows survive the filter.
+  iterative_scan: relaxed_order    # off | strict_order | relaxed_order
+  max_scan_tuples: 20000
+
+# ── Lexical retrieval ───────────────────────────────────────────────────────
+# Indispensable for this corpus. Policy questions are full of exact tokens that
+# embeddings blur together: "Band 4", "Tier 2", "NW-POL-TRV-004", "USD 350",
+# "section 13.1". Vector search alone reliably confuses Tier 2 with Tier 3.
+lexical:
+  enabled: true
+  regconfig: english
+  rank_function: ts_rank_cd
+  normalization: 32                # rank / (rank + 1) -> bounded 0..1
+  trigram_fallback: true           # pg_trgm, for misspellings like "per deim"
+  trigram_threshold: 0.3
+
+# ── Query translation ───────────────────────────────────────────────────────
+# Expansion breadth is a cost dial, not a quality dial past about three
+# rewrites: each extra query is another vector scan plus another lexical scan,
+# and the marginal recall falls off sharply. So breadth is driven by the
+# router's intent rather than being globally on.
+translation:
+  max_queries: 2
+  max_queries_by_intent:
+    policy_lookup: 2
+    calculation: 3      # needs the rate table AND the rule that applies it
+    comparison: 3       # two things to find, not one
+    multi_hop: 3
+    out_of_scope: 1     # only needs the section that redirects the user
+    underspecified: 1
+    chitchat: 1
+
+# ── Fusion ──────────────────────────────────────────────────────────────────
+# Reciprocal Rank Fusion. Chosen over score normalisation because cosine
+# similarity and ts_rank_cd are not on comparable scales and any attempt to
+# normalise them into one is arbitrary. RRF only uses RANK, which sidesteps the
+# problem entirely.
+#   score = sum over retrievers of  weight / (k + rank)
+fusion:
+  method: rrf
+  k: 60                            # the standard damping constant
+  weights:
+    vector: 1.0
+    lexical: 0.8                   # slight tilt to semantics; lexical is the specialist
+  candidates_per_retriever: 40     # each arm returns 40 before fusion
+
+# ── Diversification ─────────────────────────────────────────────────────────
+# Maximal Marginal Relevance. Without it, a question about per diems returns
+# five overlapping chunks from section 7.2 and the answer never sees the tier
+# definition in 6.1 that it actually needs. Implemented as a set-returning
+# plpgsql function over the fused candidate set.
+mmr:
+  enabled: true
+  lambda: 0.7                      # 1.0 = pure relevance, 0.0 = pure diversity
+  input_candidates: 30
+  output_candidates: 20
+
+# ── Context expansion ───────────────────────────────────────────────────────
+# Retrieve small, read large. Small chunks embed precisely; large chunks answer
+# completely. We match on the chunk but hand the LLM the enclosing section, so a
+# hit on a per-diem table row arrives with its column headers attached.
+expansion:
+  enabled: true
+  strategy: parent_section         # parent_section | sibling_window | none
+  sibling_window: 1
+  max_expanded_tokens: 1200
+
+# ── Reranking ───────────────────────────────────────────────────────────────
+rerank:
+  enabled: true
+  strategy: listwise               # one call ranks all candidates together
+  input_candidates: 20
+  output_candidates: 6
+  # Listwise beats pointwise here: relevance among policy chunks is comparative
+  # ("does 4.2 or 4.3 govern this red-eye flight?"), and a pointwise scorer
+  # cannot see the alternatives. It is also 20x cheaper — one call, not twenty.
+  batch_all_candidates: true
+  # The instruction block and output schema are byte-stable across every query,
+  # so they sit before the cache breakpoint; the candidates vary per query and
+  # sit after it. See prompts/rerank.yaml.
+  cache_instruction_prefix: true
+
+# ── Thresholds and honest refusal ───────────────────────────────────────────
+# The single most important block in this file. A RAG system over a travel
+# policy fails dangerously, not loudly: it invents a plausible per-diem number.
+# These thresholds are what make "the policy does not address this" reachable.
+thresholds:
+  min_vector_similarity: 0.35      # cosine similarity, not distance
+  min_fused_score: 0.015           # on the RRF scale above
+  # If no reranked chunk clears this, the graph routes to the refusal node
+  # instead of the generation node. Generation is never asked to decide whether
+  # it has enough evidence — that decision is structural.
+  min_rerank_relevance: 0.55
+  min_chunks_for_answer: 1
+  refuse_when_below: true
+
+# ── Answer cache ────────────────────────────────────────────────────────────
+# Two tiers with very different risk profiles.
+#
+# Exact: the normalised question hash. Always safe, always free, scoped to the
+# config bundle AND the document version so neither a prompt change nor a policy
+# reissue can serve a stale answer.
+#
+# Semantic: embed the question, cosine-match against cached questions. Cheap and
+# sometimes WRONG. This corpus contains the designed trap "per diem in Tokyo"
+# (USD 110) versus "per diem in Bengaluru" (USD 70) -- near-identical sentences
+# with different correct answers. At a commonly-recommended 0.92 they collide
+# and the cache confidently serves the wrong figure. A cache that is wrong is
+# worse than no cache, so the threshold errs hard toward missing.
+#
+# Q05/Q06 in corpus/eval-set.yaml exist to test exactly this.
+cache:
+  enabled: true
+  semantic_enabled: true
+  semantic_threshold: 0.97
+  # The query vector is produced in the cache node and reused by `retrieve`
+  # for the original question, so enabling the semantic tier adds no embedding
+  # calls. Without that reuse the tier would either cost an extra call per
+  # query or -- worse -- silently never fire for want of a vector.
+  reuse_query_embedding: true
+  ttl_hours: 168
+
+# ── Answer-time guards ──────────────────────────────────────────────────────
+guards:
+  # Every factual sentence must carry a citation to a retrieved chunk id.
+  # Checked structurally after generation, not by asking another model —
+  # a regex over citation markers is free and deterministic, whereas an
+  # LLM groundedness judge would roughly double the per-query cost.
+  require_citations: true
+  min_citation_coverage: 0.6       # fraction of factual sentences carrying a cite
+  # Citations pointing at chunk ids that were not in the retrieved set indicate
+  # the model invented a source. Hard failure, not a warning.
+  reject_uncited_chunk_ids: true

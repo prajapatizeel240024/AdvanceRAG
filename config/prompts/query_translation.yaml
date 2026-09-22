@@ -1,0 +1,102 @@
+# Query translation.
+#
+# ── Why this node exists ────────────────────────────────────────────────────
+# Users ask "can I fly business to Singapore?" The policy says "Cabin class is
+# determined by both scheduled flight duration and employee grade." Almost no
+# lexical overlap, and the embedding similarity is mediocre. Translation
+# rewrites the question into the document's own vocabulary before retrieval.
+#
+# ── Why it is not always on ─────────────────────────────────────────────────
+# Every extra generated query is another vector scan and another lexical scan,
+# and expansion has sharply diminishing returns past three. `max_queries` is a
+# cost dial, and the router's intent decides how far to turn it: a simple lookup
+# gets one rewrite, a multi-hop question gets three.
+#
+# ── Techniques considered ───────────────────────────────────────────────────
+# Multi-query expansion: adopted. Cheap, reliably helps on vocabulary mismatch.
+# Step-back prompting: adopted, folded in as the `broader` query — retrieving
+#   the general rule alongside the specific case is exactly what multi-hop
+#   policy questions need.
+# HyDE (embed a hypothetical answer): rejected. It invents plausible policy text
+#   full of invented numbers, and on a corpus this small and this
+#   numbers-dense it pulls retrieval toward passages that resemble the
+#   hallucination. The failure mode it introduces is the one we are trying
+#   hardest to eliminate.
+# Decomposition: adopted only for multi-hop intents, via `sub_questions`.
+
+version: 1.0.0
+role: query_translation
+
+input_variables: [question, intent, document_title, section_outline, max_queries]
+
+output_schema:
+  type: object
+  additionalProperties: false
+  required: [queries]
+  properties:
+    queries:
+      type: array
+      description: Rewrites to run retrieval against, most promising first.
+      items: {type: string}
+    broader:
+      type: string
+      description: >-
+        The step-back query — the general rule this specific case falls under.
+        Retrieves the governing section when the question names only an instance.
+    sub_questions:
+      type: array
+      description: >-
+        For multi-hop questions only: the independently-answerable parts. Empty
+        for single-fact lookups.
+      items: {type: string}
+    key_terms:
+      type: array
+      description: >-
+        Exact tokens for the lexical arm — grade bands, city tiers, section
+        numbers, currency amounts. These are precisely what embeddings blur
+        together and full-text search nails.
+      items: {type: string}
+
+system: |
+  You rewrite employee questions into the vocabulary of a corporate travel
+  policy, so that a retrieval system can find the governing passages. You do
+  not answer questions.
+
+  The document is: {document_title}
+
+  Its section outline:
+  {section_outline}
+
+  Produce at most {max_queries} rewrites in `queries`. Each should read like
+  the policy's own phrasing rather than the user's. "Can I fly business to
+  Singapore" becomes "cabin class entitlement for long-haul flights by employee
+  grade band".
+
+  Rules:
+
+  - Use the document's terminology. The policy says "cabin class entitlement",
+    "nightly rate cap", "per diem", "grade band", "city tier", "lowest logical
+    fare". Users say "can I fly business", "hotel limit", "food money", "my
+    level", "expensive city", "cheapest flight".
+
+  - Never invent specifics. Do not add a city, a grade, a duration or a figure
+    the user did not mention. Inventing constraints makes retrieval confidently
+    fetch the wrong row.
+
+  - `broader` is the step-back: the general rule this case falls under. For a
+    question about a specific city's per diem, the broader query is about the
+    per-diem rate structure and city tiers — which is where the tier
+    definitions actually live.
+
+  - Fill `sub_questions` only when the question genuinely needs two independent
+    lookups joined together. "What cabin for a Senior Engineer on a 12-hour
+    flight" needs the grade-band mapping AND the duration matrix, so it
+    decomposes. "What is the per diem in Tokyo" does not.
+
+  - `key_terms` should hold exact strings worth matching literally: "Band 4",
+    "Tier 2", "section 13.1", "USD 350", "Premium Economy". These carry the
+    precision that vector search loses.
+
+user: |
+  Intent: {intent}
+  Question: {question}

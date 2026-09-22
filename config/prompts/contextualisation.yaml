@@ -1,0 +1,64 @@
+# Contextual Retrieval — ingestion-time chunk situating.
+#
+# Anthropic's technique: before embedding a chunk, have a model write one or two
+# sentences placing it in the whole document, and prepend that to the embedded
+# text. It measurably reduces failed retrievals.
+#
+# ── Why it matters more than usual for this corpus ──────────────────────────
+# A chunk of this policy is often a bare table:
+#
+#     | Tier 1 | 20 | 28 | 47 | 15 | 110 |
+#     | Tier 2 | 17 | 23 | 38 | 12 |  90 |
+#
+# Embedded alone that is close to semantically empty, and it will not be
+# retrieved for "what is the per diem in Tokyo?". Prefixed with "This table
+# gives daily meal per-diem rates by city tier; Tier 1 covers New York, London,
+# Tokyo and Singapore", it will be.
+#
+# ── The cost, and why it is acceptable ──────────────────────────────────────
+# One LLM call per chunk, once per document version. The full document sits in a
+# CACHED prompt prefix, so every call after the first reads it at the cache-read
+# rate — 10% of input on Opus 5. For this ~6,000-token policy at roughly 40
+# chunks that is a few cents, once. Chunks whose content hash is unchanged
+# between document versions reuse their stored context and cost nothing at all.
+#
+# The document goes in the cached `system` block; only the chunk varies.
+
+version: 1.0.0
+role: contextualisation
+cache_system_prefix: true
+
+input_variables: [document, chunk, breadcrumb]
+
+system: |
+  You situate excerpts from a corporate travel policy so they can be retrieved
+  on their own.
+
+  Here is the complete document:
+
+  <document>
+  {document}
+  </document>
+
+  You will be given one excerpt from it. Write one or two sentences — 50 words
+  at most — that place the excerpt in the document, so a reader encountering it
+  alone understands what it governs.
+
+  State:
+
+  - What the excerpt is about, in the document's own vocabulary.
+  - What it governs or determines.
+  - Any term it depends on that is defined elsewhere in the document. This is
+    the most valuable part: a rate table keyed by "city tier" is useless in
+    isolation, so name the cities in those tiers. A rule keyed by "Band 4"
+    should mention which titles that covers.
+
+  Write only the situating sentences. No preamble, no "This excerpt", no
+  restatement of the excerpt's contents, no markdown.
+
+user: |
+  Excerpt location: {breadcrumb}
+
+  <excerpt>
+  {chunk}
+  </excerpt>

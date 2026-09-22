@@ -1,0 +1,122 @@
+@import 'tailwindcss';
+
+/* Tokens are declared once and redefined for dark mode, so every surface picks
+   up the theme without per-component conditionals. */
+:root {
+  --bg: #fbfbfa;
+  --surface: #ffffff;
+  --surface-2: #f4f4f2;
+  --border: #e4e4e0;
+  --text: #1c1c1a;
+  --text-dim: #6b6b66;
+  --accent: #b4532a;
+  --accent-soft: #f5ece7;
+  --ok: #3f7d58;
+  --warn: #a5761b;
+  --danger: #a33a2b;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #17171a;
+    --surface: #1e1e22;
+    --surface-2: #26262b;
+    --border: #33333a;
+    --text: #ececea;
+    --text-dim: #9a9a95;
+    --accent: #e0825c;
+    --accent-soft: #2c211c;
+    --ok: #6fb98a;
+    --warn: #d4a94f;
+    --danger: #e08070;
+  }
+}
+
+:root[data-theme='dark'] {
+  --bg: #17171a;
+  --surface: #1e1e22;
+  --surface-2: #26262b;
+  --border: #33333a;
+  --text: #ececea;
+  --text-dim: #9a9a95;
+  --accent: #e0825c;
+  --accent-soft: #2c211c;
+  --ok: #6fb98a;
+  --warn: #d4a94f;
+  --danger: #e08070;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-sans-serif, -apple-system, 'Segoe UI', Inter, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* A citation marker rendered inline in the answer. Clicking scrolls the
+   matching source into view, which is the whole point of showing sources. */
+.cite {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  padding: 0 0.25rem;
+  margin: 0 0.1rem;
+  border-radius: 0.3rem;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.7rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  vertical-align: baseline;
+  border: 1px solid transparent;
+}
+.cite:hover {
+  border-color: var(--accent);
+}
+
+.cite-target {
+  animation: flash 1.4s ease-out;
+}
+@keyframes flash {
+  0%,
+  30% {
+    background: var(--accent-soft);
+  }
+  100% {
+    background: transparent;
+  }
+}
+
+/* The caret that trails streaming text, so a pause reads as "still writing"
+   rather than "finished". */
+.caret::after {
+  content: '';
+  display: inline-block;
+  width: 0.5ch;
+  height: 1em;
+  margin-left: 0.15ch;
+  background: var(--accent);
+  vertical-align: text-bottom;
+  animation: blink 1s steps(2, start) infinite;
+}
+@keyframes blink {
+  to {
+    visibility: hidden;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .caret::after,
+  .cite-target {
+    animation: none;
+  }
+}

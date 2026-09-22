@@ -1,0 +1,134 @@
+# Price book — USD per 1,000,000 tokens.
+#
+# ── Why prices live in config, not in code ──────────────────────────────────
+# Provider prices change. If the cost of a run in March is recomputed with
+# September's prices, every historical cost figure silently rewrites itself and
+# the ledger becomes worthless for trend analysis.
+#
+# So: this file is registered into `model_prices` as versioned rows with an
+# `effective_from` date. `cost_ledger` stores a FK to the exact price row used
+# plus the resolved unit prices as numerics. Cost is then computed by a database
+# trigger at insert time and never recalculated. Re-pricing history is
+# impossible by construction.
+#
+# ── Verification status ─────────────────────────────────────────────────────
+# Anthropic  — verified against the bundled claude-api skill price table.
+# Google     — verified 2026-09-22 against ai.google.dev/gemini-api/docs/pricing.
+# `confidence: verified` means checked against a primary source on `checked_on`.
+# Anything marked `assumed` must be treated as an estimate in the UI.
+
+version: 1.0.0
+currency: USD
+unit: per_1m_tokens
+
+prices:
+  # ── Anthropic ─────────────────────────────────────────────────────────────
+  - model_id: claude-opus-5
+    provider: anthropic
+    effective_from: "2026-01-01"
+    input: 5.00
+    output: 25.00
+    # Anthropic's standard cache economics: writing to the cache costs a 25%
+    # premium over base input; reading from it costs 10% of base input. The
+    # read rate is what makes listwise reranking affordable at Opus prices.
+    cache_write: 6.25              # 1.25 x input
+    cache_read: 0.50               # 0.10 x input
+    confidence: verified
+    checked_on: "2026-09-22"
+    source: bundled claude-api skill model table
+
+  # ── Google ────────────────────────────────────────────────────────────────
+  - model_id: gemini-embedding-001
+    provider: google
+    effective_from: "2026-01-01"
+    input: 0.15
+    output: 0.00                   # embeddings produce no billable output tokens
+    batch_input: 0.075             # Batch API is exactly half price
+    confidence: verified
+    checked_on: "2026-09-22"
+    source: ai.google.dev/gemini-api/docs/pricing
+
+  - model_id: gemini-3.8-flash
+    provider: google
+    effective_from: "2026-01-01"
+    input: 0.75
+    output: 3.75
+    confidence: verified
+    checked_on: "2026-09-22"
+    source: ai.google.dev/gemini-api/docs/pricing
+    # Introductory pricing. On 2027-01-01 this becomes 1.50 / 7.50 — roughly
+    # double. Registered below as a future-dated row so the switch is automatic
+    # and no historical run is re-priced.
+
+  - model_id: gemini-3.8-flash
+    provider: google
+    effective_from: "2027-01-01"
+    input: 1.50
+    output: 7.50
+    confidence: verified
+    checked_on: "2026-09-22"
+    source: ai.google.dev/gemini-api/docs/pricing — post-introductory rate
+
+  - model_id: gemini-3.1-pro-preview
+    provider: google
+    effective_from: "2026-01-01"
+    # Gemini Pro prices are TIERED on prompt size. The ledger resolves the tier
+    # from the actual prompt_token_count of each call, which is why this is a
+    # list rather than a scalar.
+    tiered_by_prompt_tokens:
+      - up_to: 200000
+        input: 2.00
+        output: 12.00
+      - up_to: null                # above 200k
+        input: 4.00
+        output: 18.00
+    confidence: verified
+    checked_on: "2026-09-22"
+    source: ai.google.dev/gemini-api/docs/pricing
+
+# ── Estimation assumptions ──────────────────────────────────────────────────
+# The ingestion estimate has to predict OUTPUT tokens before any call is made,
+# and output is priced 5x input on Opus 5 -- so a wrong assumption here is the
+# largest single source of estimate error.
+#
+# The subtlety: every Anthropic call in this system runs `thinking: adaptive`,
+# and thinking tokens are billed as output. A naive estimate of "two sentences
+# of context ≈ 80 tokens" therefore understates the real output, potentially by
+# a lot, because it counts only the visible answer.
+#
+# These multipliers are DECLARED ASSUMPTIONS, not measurements. They are
+# deliberately config rather than constants so the first real ingestion run can
+# replace them with observed values: compare est_cost_usd against
+# actual_cost_usd in v_ingestion_estimate_accuracy and re-derive.
+estimation:
+  # Visible output tokens per contextualisation call (~2 sentences).
+  context_visible_output_tokens: 80
+  # Multiplier applied for adaptive thinking at effort=low. UNVERIFIED --
+  # measure it before quoting the ingestion cost to anyone as fact.
+  thinking_output_multiplier: 3.0
+  thinking_multiplier_confidence: assumed
+
+# ── Budget guardrails ───────────────────────────────────────────────────────
+# Enforced in the DATABASE by a BEFORE INSERT trigger on cost_ledger, not in the
+# API layer. An API-layer check is advisory — anything with a connection can
+# bypass it. A trigger cannot be bypassed, which is the point of pushing logic
+# into Postgres.
+budgets:
+  per_user_daily_usd: 5.00
+  per_user_monthly_usd: 50.00
+  per_tenant_monthly_usd: 500.00
+  # Single ingestion run refuses to start above this without --force. Guards
+  # against pasting a 900-page PDF and discovering the bill afterwards.
+  per_ingestion_run_usd: 2.00
+  on_exceed: reject                # reject | warn
+  # Ingestion always estimates before spending; below this the estimate is
+  # auto-approved rather than prompting.
+  estimate_auto_approve_under_usd: 0.25
+
+# ── Cost display ────────────────────────────────────────────────────────────
+# Per-query costs land in the 10^-3 to 10^-2 dollar range, so dollars round to
+# zero and read as "free". The UI shows millicents; the DB stores exact numeric.
+display:
+  unit: millicents                 # 1 USD = 100,000 millicents
+  decimals: 2
+  show_breakdown_by_node: true

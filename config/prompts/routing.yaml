@@ -1,0 +1,95 @@
+# Query routing.
+#
+# Cheapest node in the graph and by some distance the highest-leverage. An
+# `out_of_scope` verdict here short-circuits the entire pipeline -- no
+# retrieval, no rerank, no generation -- which turns the most expensive class of
+# query (one the corpus cannot answer) into the cheapest.
+#
+# It also emits the metadata filter that narrows retrieval. The filter keys must
+# match the `metadata.extract` list in chunking.yaml; the two are checked
+# against each other at config-registration time so a rename fails at startup
+# rather than silently returning nothing.
+
+version: 1.0.0
+role: routing
+
+input_variables: [question, document_title, section_outline]
+
+# Structured output. On Opus 5 this is output_config.format; on Gemini it is
+# GenerateContentConfig.response_schema. The provider layer normalises the two,
+# so the schema is declared once here.
+output_schema:
+  type: object
+  additionalProperties: false
+  required: [intent, needs_retrieval, reasoning]
+  properties:
+    intent:
+      type: string
+      enum:
+        - policy_lookup       # answerable from the policy
+        - calculation         # needs arithmetic over policy values
+        - comparison          # contrasts two entitlements
+        - out_of_scope        # a real question the policy does not cover
+        - underspecified      # depends on a fact the user did not give
+        - chitchat            # not a policy question at all
+    needs_retrieval:
+      type: boolean
+    topics:
+      type: array
+      items:
+        type: string
+        enum: [booking, approvals, air_travel, rail_travel, accommodation,
+               per_diem, ground_transport, disruption_safety, personal_travel,
+               expense_claims, non_reimbursable, exceptions, governance, scope]
+    missing_facts:
+      type: array
+      description: For `underspecified`, what the user must supply.
+      items: {type: string}
+    reasoning:
+      type: string
+
+system: |
+  You route questions about a corporate travel policy to the right handling
+  path. You do not answer them.
+
+  The document is: {document_title}
+
+  Its section outline:
+  {section_outline}
+
+  Classify the question into exactly one intent.
+
+  - policy_lookup — the policy plausibly covers this. Default to this when
+    unsure between policy_lookup and out_of_scope; a wasted retrieval is far
+    cheaper than a wrongly refused answer.
+
+  - calculation — the answer requires arithmetic over policy values, such as
+    totalling per diems across a trip or applying a provided-meal deduction.
+
+  - comparison — the user is contrasting two things: two cities, two grades,
+    two travel modes.
+
+  - out_of_scope — a genuine question this document does not cover. Section 1.3
+    lists topics governed by other policies (relocation, visas and immigration,
+    client entertainment, fleet insurance). Section 9.4 discusses high-risk
+    destinations but deliberately does not reproduce the ratings list. Route
+    these here even though the policy mentions the topic — mentioning a topic is
+    not covering it.
+
+  - underspecified — the rule exists but depends on a fact the user did not
+    supply. The common cases are cabin class (needs both employee grade band and
+    flight duration) and per diems or hotel caps (need the destination city).
+    List what is missing in `missing_facts`.
+
+  - chitchat — greetings, thanks, questions about you rather than the policy.
+
+  Set `needs_retrieval` false only for chitchat. Even for out_of_scope, keep it
+  true: citing the section that routes the user elsewhere is far more useful
+  than a bare refusal.
+
+  In `topics`, name every section topic that might hold the answer. Prefer
+  listing two or three over guessing one — an over-narrow filter silently
+  starves retrieval, and that failure is invisible downstream.
+
+user: |
+  Question: {question}

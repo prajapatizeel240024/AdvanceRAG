@@ -1,0 +1,130 @@
+# Document parsing and chunking.
+#
+# ── The failure this config exists to prevent ───────────────────────────────
+# Fixed-window chunking destroys a policy document. Split the per-diem table in
+# section 7.2 at an arbitrary 600-token boundary and you get a chunk containing
+# the numbers 13, 18, 29, 10 with no column headers and no city tier. Retrieval
+# will still happily return it, and the model will still happily produce a
+# confident wrong per diem. Structure-aware chunking is therefore a correctness
+# requirement, not an optimisation.
+
+version: 1.0.0
+
+parsing:
+  formats:
+    markdown:
+      parser: native               # heading tree is already explicit
+    pdf:
+      parser: pymupdf4llm          # preserves heading levels and table structure
+      fallback: pypdf
+    docx:
+      parser: python-docx
+  # Heading hierarchy is the backbone of every downstream decision — section
+  # path, breadcrumb, parent expansion, metadata filters. If a parser loses it,
+  # we reject the document rather than chunk it badly.
+  require_heading_structure: true
+  normalize_whitespace: true
+  preserve_tables: true
+
+chunking:
+  strategy: structure_aware_hierarchical
+
+  # Split on heading boundaries FIRST, then subdivide oversized sections by
+  # token budget. A section shorter than the budget stays whole regardless of
+  # how short it is — section 1.3 (out-of-scope topics) is only ~90 tokens but
+  # is the single most important chunk for honest refusal.
+  split_on_headings: true
+  heading_levels: [1, 2, 3]
+
+  max_tokens: 600
+  min_tokens: 60
+  overlap_tokens: 90               # 15% — carries antecedents across a boundary
+
+  # ── Atomic units: never split these ───────────────────────────────────────
+  # A table split across two chunks is worse than useless, because both halves
+  # look retrievable and neither is answerable.
+  atomic:
+    tables: true
+    lists: true
+    numbered_clauses: true
+  # A table that genuinely exceeds max_tokens is split BY ROW with the header
+  # row repeated into every part, and each part is marked `table_part` so the
+  # expansion step can re-stitch them.
+  table_overflow: split_by_row_repeat_header
+  table_hard_cap_tokens: 1200
+
+  # ── Breadcrumbs ───────────────────────────────────────────────────────────
+  # Each chunk's embedded text is prefixed with its position in the document:
+  #   "Northwind Travel Policy > 4. Air Travel > 4.2 Cabin Class Entitlement"
+  # This is close to free and measurably improves retrieval, because a bare
+  # table of numbers has almost no semantic surface of its own.
+  prepend_breadcrumb: true
+  breadcrumb_separator: " > "
+  # Stored separately from the raw text so citations can display the clean
+  # original while the embedding sees the enriched version.
+  breadcrumb_in_embedding_only: true
+
+# ── Contextual Retrieval ────────────────────────────────────────────────────
+# Anthropic's technique: an LLM writes a one-sentence situating summary for each
+# chunk, prepended before embedding. It measurably reduces failed retrievals.
+#
+# The cost objection is the obvious one — one LLM call per chunk. The answer is
+# prompt caching: the full document sits in a cached prefix and only the chunk
+# varies, so calls after the first read the document at the cache-read rate
+# (10% of input) instead of the full input rate. For this ~6k-token policy at
+# ~40 chunks the enriched ingestion runs a few cents, once, per document
+# version. Worth it. Disable for very large corpora where it stops being cheap.
+contextual_retrieval:
+  enabled: true
+  role: contextualisation          # resolved via models.yaml
+  cache_document_prefix: true
+  max_context_sentences: 2
+  # Re-running ingestion must not re-pay this. Context strings are keyed by
+  # (document_version_id, chunk_content_hash) and reused when a chunk is
+  # unchanged between document versions.
+  reuse_on_unchanged_chunk: true
+
+# ── Metadata extraction ─────────────────────────────────────────────────────
+# Written to `chunks.metadata` as jsonb. The router emits filters against these
+# exact keys, so this list and the router's output schema must agree — they are
+# checked against each other at config-registration time.
+metadata:
+  extract:
+    - section_path                 # ["4", "4.2"]
+    - section_title
+    - clause_numbers               # ["4.2", "4.3"]
+    - contains_table
+    - monetary_values              # [350, 275, 190, 150] — enables numeric filters
+    - currencies                   # ["USD", "GBP", "EUR", "INR"]
+    - cities                       # ["Tokyo", "London", ...] for tier questions
+    - grade_bands                  # ["Band 4", "Band 5"]
+    - topic                        # one of the enum below
+  topics:
+    - booking
+    - approvals
+    - air_travel
+    - rail_travel
+    - accommodation
+    - per_diem
+    - ground_transport
+    - disruption_safety
+    - personal_travel
+    - expense_claims
+    - non_reimbursable
+    - exceptions
+    - governance
+    - scope
+
+# ── Versioning and re-ingestion ─────────────────────────────────────────────
+# A travel policy is reissued annually and typically changes under 5% of its
+# text. Re-embedding the whole document every April is pure waste, so chunks are
+# content-addressed: sha256 over (normalised text + breadcrumb). On re-ingest we
+# diff v2's chunk hashes against v1's and embed only what is genuinely new.
+# `documents.estimated_cost` vs `documents.actual_cost` then shows the saving.
+versioning:
+  content_hash: sha256
+  hash_inputs: [normalized_text, breadcrumb]
+  reuse_embeddings_on_unchanged_hash: true
+  # Answers can be pinned to a policy effective date, so a question about a
+  # trip taken in March 2026 is answered from v4.1, not v4.2.
+  effective_dating: true

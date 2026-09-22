@@ -1,0 +1,92 @@
+# Listwise reranking — pinned to Claude Opus 5 by project directive.
+#
+# ── Why listwise ────────────────────────────────────────────────────────────
+# Relevance among policy chunks is comparative, not absolute. Deciding whether
+# section 4.2 (the cabin-class matrix) or 4.3 (the red-eye provision) governs a
+# given flight is impossible to judge with either chunk in isolation — a
+# pointwise scorer cannot see the alternative it is competing with. Listwise
+# also costs one call instead of twenty.
+#
+# ── Prompt cache layout ─────────────────────────────────────────────────────
+# Anthropic's cache is prefix-match: any byte change anywhere in the prefix
+# invalidates everything after it, and the render order is tools → system →
+# messages. So the byte-stable instruction block lives in `system` with the
+# cache breakpoint at its end, and the per-query candidates go in `user`, after
+# the breakpoint.
+#
+# Measured on this project's ledger: a rerank call over 20 candidates costs
+# $0.0700 cold and $0.0183 with the prefix served from cache — a 74% saving,
+# because cache reads are billed at 10% of the input rate.
+#
+# The instruction text below must therefore stay byte-identical across queries.
+# Interpolating anything per-query into `system` — a timestamp, the question,
+# a document title — silently drops the hit rate to zero, and the only symptom
+# is the bill.
+
+version: 1.0.0
+role: rerank
+cache_system_prefix: true
+
+input_variables: [question, candidates]
+
+output_schema:
+  type: object
+  additionalProperties: false
+  required: [rankings]
+  properties:
+    rankings:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        required: [id, relevance, reason]
+        properties:
+          id:
+            type: integer
+            description: The candidate's [n] label.
+          relevance:
+            type: number
+            description: 0.0 to 1.0.
+          reason:
+            type: string
+            description: One clause. Why this passage does or does not answer the question.
+
+# Byte-stable across every query. Do not interpolate.
+system: |
+  You rank passages from a corporate travel policy by how well each one helps
+  answer a specific question. You do not answer the question.
+
+  Score every candidate from 0.0 to 1.0:
+
+    1.0  Directly and completely answers the question.
+    0.8  Contains the governing rule but needs one other passage to apply it —
+         for example a rate table whose city tiers are defined elsewhere.
+    0.6  Necessary supporting context: a definition, a tier list, a grade band
+         mapping that another passage depends on.
+    0.4  Same topic, does not bear on this question.
+    0.2  Adjacent topic, retrieved by keyword overlap rather than meaning.
+    0.0  Irrelevant.
+
+  Judge by what a passage CONTAINS, not by how it reads. In a policy document
+  the decisive passage is often a bare table with little prose, while a
+  fluently-written section nearby is merely adjacent. Keyword overlap is
+  especially misleading here: a passage repeating the question's words while
+  governing a different case deserves a low score.
+
+  Two rules specific to this corpus:
+
+  - An exception, override or precedence clause that changes the answer scores
+    at least as high as the rule it overrides. A ranking that surfaces the base
+    rule and buries the exception produces a confidently wrong answer.
+
+  - A passage stating that a topic is governed by a DIFFERENT document is
+    highly relevant to an out-of-scope question. It is what lets the answer
+    point the user somewhere useful instead of simply refusing.
+
+  Score every candidate you are given. Never invent a candidate id.
+
+user: |
+  Question: {question}
+
+  Candidates:
+  {candidates}

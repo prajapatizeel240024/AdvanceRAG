@@ -1,0 +1,158 @@
+# Model registry and role assignment.
+#
+# ── Why this file exists ────────────────────────────────────────────────────
+# Nothing in the codebase names a model. Every LLM call asks the registry for a
+# ROLE ("reranker", "router", ...) and the registry resolves it to a concrete
+# model. That indirection is the whole point: flipping the system from
+# all-Opus-5 to the Gemini-mixed target state is a change to THIS FILE and a
+# bump of `version` — not a code change and not a redeploy.
+#
+# On startup this file is canonicalised (sorted keys, LF, no trailing space),
+# hashed with sha256, and upserted into `config_file_versions`. Every run then
+# stores the resulting `config_bundle_id`, so "which model answered this?" is a
+# join, not a guess. See config/README.md for the provenance query.
+#
+# ── Bumping the version ─────────────────────────────────────────────────────
+# `version` is semver and MUST be bumped on any semantic change. The content
+# hash catches accidental drift; the semver communicates intent to humans.
+# Registered versions are append-only — the DB rejects a mutation of an
+# existing (file, version, hash) triple.
+
+version: 1.0.0
+description: >-
+  Bootstrap assignment. Every role runs on Claude Opus 5 per the current
+  directive. Roles are pre-wired so the Gemini target state (v2.0.0, below in
+  models.target.yaml) is a one-file swap.
+
+# ── Model catalogue ─────────────────────────────────────────────────────────
+# `id` is the exact provider model string. Never construct or date-suffix these.
+# Pricing lives in costs.yaml, keyed by these same `id` values, and is versioned
+# separately so historical runs keep their historical prices.
+models:
+  opus5:
+    provider: anthropic
+    id: claude-opus-5
+    kind: chat
+    context_window: 1000000
+    max_output_tokens: 64000
+    supports:
+      adaptive_thinking: true      # thinking={"type":"adaptive"}; budget_tokens is a 400
+      effort: true                 # output_config.effort: low|medium|high|xhigh|max
+      structured_output: true      # output_config.format
+      prompt_caching: true         # cache_control ephemeral, max 4 breakpoints
+      prefill: false               # assistant prefill returns 400 on Opus 5
+      streaming: true
+
+  gemini_pro:
+    provider: google
+    id: gemini-3.1-pro-preview
+    kind: chat
+    context_window: 1000000
+    max_output_tokens: 64000
+    supports:
+      structured_output: true      # GenerateContentConfig.response_schema
+      thinking_level: true
+      prompt_caching: true
+      streaming: true
+
+  gemini_flash:
+    provider: google
+    id: gemini-3.8-flash
+    kind: chat
+    context_window: 1000000
+    max_output_tokens: 64000
+    supports:
+      structured_output: true
+      thinking_level: true         # low | medium | high
+      prompt_caching: true
+      streaming: true
+
+  gemini_embed:
+    provider: google
+    id: gemini-embedding-001
+    kind: embedding
+    # gemini-embedding-001 natively produces 3072 dims and supports Matryoshka
+    # (MRL) truncation. We store 1536 because pgvector's HNSW index rejects a
+    # `vector` column above 2000 dimensions — verified on this machine:
+    #   ERROR: column cannot have more than 2000 dimensions for hnsw index
+    # 1536 keeps the plain `vector` type (simpler operators, half the storage of
+    # 3072) at negligible retrieval loss. The alternative — halfvec(3072), which
+    # DOES index under HNSW up to 4096 dims — is documented in retrieval.yaml.
+    dimensions: 1536
+    native_dimensions: 3072
+    # MRL truncation below the native size de-normalises the vector, so the
+    # provider re-normalises to unit length before storage. Skipping this
+    # silently corrupts cosine distance.
+    normalize_after_truncation: true
+    # Asymmetric embedding: documents and queries use DIFFERENT task types.
+    # Getting this wrong costs measurable recall and is invisible in testing.
+    task_type_document: RETRIEVAL_DOCUMENT
+    task_type_query: RETRIEVAL_QUERY
+    max_batch_size: 100
+
+# ── Role assignment ─────────────────────────────────────────────────────────
+# `effort` maps to output_config.effort on Anthropic and thinking_level on
+# Google. Effort is the primary cost dial once caching is in place: cheap
+# mechanical roles run low, judgement-heavy roles run high.
+roles:
+  query_translation:
+    model: opus5                   # target state: gemini_flash
+    effort: low
+    max_output_tokens: 1024
+    temperature: null              # sampling params are rejected on Opus 5
+    notes: Rewrites and expands the user question. Mechanical — low effort is enough.
+
+  routing:
+    model: opus5                   # target state: gemini_flash
+    effort: low
+    max_output_tokens: 512
+    notes: >-
+      Classifies intent and emits metadata filters. Cheapest node in the graph
+      and the highest-leverage: an out_of_scope verdict short-circuits the whole
+      pipeline, skipping retrieval, rerank and generation.
+
+  rerank:
+    model: opus5                   # stays on Opus 5 in the target state
+    effort: high
+    max_output_tokens: 2048
+    notes: >-
+      Listwise reranking of retrieved candidates. Explicitly pinned to Opus 5 by
+      the project directive — this is the node where ranking judgement decides
+      whether the right per-diem row reaches the answer.
+
+  generation:
+    model: opus5
+    effort: high
+    max_output_tokens: 4096
+    notes: Grounded answer synthesis with inline citations. Streams to the browser.
+
+  contextualisation:
+    model: opus5                   # target state: gemini_flash
+    effort: low
+    max_output_tokens: 256
+    notes: >-
+      Ingestion-time only. Writes a one-sentence situating summary per chunk
+      (Anthropic's Contextual Retrieval). Runs once per chunk per document
+      version, with the full document held in a cached prompt prefix.
+
+  embedding:
+    model: gemini_embed
+    notes: >-
+      Anthropic has no embeddings endpoint, so this role cannot resolve to
+      Opus 5. Gemini is the deliberate exception to the all-Opus-5 directive.
+
+# ── Degraded mode ───────────────────────────────────────────────────────────
+# With no API keys present the system still serves: schema, migrations, config
+# registration, document parsing, chunking, token counting and — critically —
+# ingestion COST ESTIMATION. Only live embedding and live answering need keys.
+degraded_mode:
+  enabled: true
+  allow_without_keys:
+    - config_registration
+    - document_parse
+    - document_chunk
+    - cost_estimate
+    - provenance_query
+  deny_without_keys:
+    - embed
+    - answer

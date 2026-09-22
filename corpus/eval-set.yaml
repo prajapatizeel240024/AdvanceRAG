@@ -1,0 +1,315 @@
+# Evaluation set for the Northwind Global travel policy RAG system.
+#
+# Every question is answerable (or provably NOT answerable) from
+# corpus/travel-policy-v1.md. `must_cite` lists the section ids that a correct,
+# grounded answer has to ground itself in — these drive retrieval recall@k and
+# citation-precision metrics. `expected` is the ground-truth answer used for
+# answer-correctness grading.
+#
+# `category` drives per-category score breakdowns, because a system that aces
+# simple lookups and fails multi-hop is a system that will confidently quote the
+# wrong per diem in production.
+
+version: 1
+corpus: travel-policy-v1.md
+corpus_version: "4.2"
+
+categories:
+  simple_lookup:      Single fact, single section, stated verbatim.
+  table_lookup:       Requires reading a specific cell out of a table.
+  multi_hop:          Requires combining two or more separate sections.
+  calculation:        Requires arithmetic over retrieved values.
+  comparison:         Requires contrasting two entitlements or rules.
+  conditional:        Answer flips on a condition the user did or did not supply.
+  precedence:         Requires knowing which rule overrides which.
+  underspecified:     User omitted a fact the rule depends on — must ask, not guess.
+  out_of_scope:       Not covered by this policy — must refuse honestly.
+
+questions:
+  # ---------------------------------------------------------------- simple ---
+  - id: Q01
+    category: simple_lookup
+    question: How many days in advance do I need to book an international flight?
+    expected: >-
+      21 days minimum advance notice. Booking inside that window requires
+      line-manager approval recorded in the Travel Portal.
+    must_cite: ["2.4"]
+
+  - id: Q02
+    category: simple_lookup
+    question: What is the deadline for submitting an expense claim?
+    expected: >-
+      30 calendar days from the trip end date. Claims from 31-60 days need
+      Department Head approval with a written explanation; claims after 60 days
+      are not reimbursed except for documented extended illness or leave.
+    must_cite: ["11.1"]
+
+  - id: Q03
+    category: simple_lookup
+    question: Can I expense the minibar?
+    expected: No. Mini-bar, in-room movies, spa and gym day-passes are not reimbursable.
+    must_cite: ["6.4", "12.1"]
+
+  - id: Q04
+    category: simple_lookup
+    question: Do I need receipts for my meals?
+    expected: >-
+      No. Meals are claimed as a fixed per diem and receipts are not required.
+      You also cannot claim actual meal costs on top of a per diem for the same day.
+    must_cite: ["7.1", "11.2"]
+
+  # ----------------------------------------------------------- table lookup ---
+  - id: Q05
+    category: table_lookup
+    question: What is the per diem in Tokyo?
+    expected: >-
+      Tokyo is a Tier 1 city, so the full-day per diem is USD 110 — made up of
+      breakfast 20, lunch 28, dinner 47 and incidentals 15.
+    must_cite: ["7.2", "6.1"]
+    notes: >-
+      Tier membership is defined in 6.1 but the rate table is in 7.2, so this is
+      a two-section lookup even though it reads like a simple one. Good semantic
+      cache trap alongside Q06.
+
+  - id: Q06
+    category: table_lookup
+    question: What is the per diem in Bengaluru?
+    expected: >-
+      Bengaluru is a Tier 3 city, so the full-day per diem is USD 70 — breakfast
+      13, lunch 18, dinner 29, incidentals 10.
+    must_cite: ["7.2", "6.1"]
+    notes: >-
+      Near-identical embedding to Q05 but a different answer. This pair is the
+      designated semantic-cache false-hit test — if the cache returns 110 here,
+      the cache threshold is wrong.
+
+  - id: Q07
+    category: table_lookup
+    question: What is the hotel cap in Amsterdam?
+    expected: Amsterdam is Tier 2, so the nightly cap is USD 275 including mandatory taxes and resort fees.
+    must_cite: ["6.1"]
+
+  - id: Q08
+    category: table_lookup
+    question: What rental car class can a Director book?
+    expected: >-
+      Director is Band 4, so Standard / Full-size is the maximum vehicle class.
+    must_cite: ["8.3", "1.4"]
+
+  - id: Q09
+    category: table_lookup
+    question: What is the mileage rate for driving my own car in the UK?
+    expected: >-
+      GBP 0.45 per mile for the first 10,000 miles, then GBP 0.25 per mile. This
+      covers fuel, wear and insurance, so fuel receipts cannot be claimed as well.
+    must_cite: ["8.4"]
+
+  # -------------------------------------------------------------- multi-hop ---
+  - id: Q10
+    category: multi_hop
+    question: I'm a Senior Engineer flying London to Singapore. What cabin can I book?
+    expected: >-
+      Senior Engineer is Band 3, and London-Singapore is over 10 hours, so the
+      entitlement is Business class.
+    must_cite: ["4.2", "1.4"]
+    notes: Requires the grade-band table in 1.4 plus the duration/grade matrix in 4.2.
+
+  - id: Q11
+    category: multi_hop
+    question: I'm an Analyst on a 7-hour flight. Can I book premium economy?
+    expected: >-
+      Yes. Analyst is Band 1, and for a longest single leg over 6 and up to 10
+      hours the Band 1-2 entitlement is Premium Economy.
+    must_cite: ["4.2", "1.4"]
+
+  - id: Q12
+    category: multi_hop
+    question: >-
+      I'm a Manager taking a 7-hour overnight flight departing at 23:00. What
+      cabin am I entitled to?
+    expected: >-
+      Business. Manager is Band 3, whose baseline for a 6-10 hour leg is Premium
+      Economy, but the red-eye provision allows one class above entitlement for
+      a flight departing between 22:00 and 05:00 with duration over six hours,
+      capped at Business. Limited to four uses per calendar year.
+    must_cite: ["4.2", "4.3", "1.4"]
+    notes: Three-section hop. The highest-value retrieval test in the set.
+
+  - id: Q13
+    category: multi_hop
+    question: I stayed at a hotel where breakfast was included. Can I still claim the breakfast per diem?
+    expected: >-
+      No. Where a meal is provided — including breakfast included in the room
+      rate — the corresponding per diem component must be deducted from that
+      day's claim.
+    must_cite: ["7.4", "6.4"]
+
+  # ------------------------------------------------------------ calculation ---
+  - id: Q14
+    category: calculation
+    question: >-
+      I'm in Paris for three full days, and lunch was provided at the conference
+      on all three days. What can I claim in meals?
+    expected: >-
+      Paris is Tier 2 (full day USD 90, lunch component USD 23). Deducting the
+      provided lunch gives USD 67 per day, so USD 201 for the three days.
+    must_cite: ["7.2", "7.4", "6.1"]
+
+  - id: Q15
+    category: calculation
+    question: >-
+      I flew out of New York at 08:00 on Monday and got back at 20:00 on
+      Wednesday. What meals can I claim?
+    expected: >-
+      New York is Tier 1. Monday departure between 07:00 and 13:00 allows lunch
+      and dinner (28 + 47 = 75) plus incidentals 15 = 90. Tuesday is a full day
+      at 110. Wednesday return after 19:00 allows breakfast, lunch and dinner
+      (20 + 28 + 47 = 95) plus incidentals 15 = 110. Total USD 310.
+    must_cite: ["7.2", "7.3", "6.1"]
+
+  - id: Q16
+    category: calculation
+    question: My trip will cost about $12,000. Who needs to approve it?
+    expected: >-
+      USD 12,000 falls in the 10,001-25,000 band, so it needs both the
+      Department Head and the Finance Business Partner.
+    must_cite: ["3.1"]
+
+  # ------------------------------------------------------------- comparison ---
+  - id: Q17
+    category: comparison
+    question: What's the difference in hotel allowance between London and Lisbon?
+    expected: >-
+      London is Tier 1 at USD 350 per night; Lisbon is Tier 3 at USD 190. A
+      difference of USD 160 per night.
+    must_cite: ["6.1"]
+
+  - id: Q18
+    category: comparison
+    question: Should I take the train or fly from London to Paris?
+    expected: >-
+      Rail, because the city-centre-to-city-centre time is under four hours.
+      Rail must be booked in preference to flying on such routes unless the rail
+      fare exceeds the lowest logical air fare by more than 40%.
+    must_cite: ["5.1"]
+
+  # ------------------------------------------------------------ conditional ---
+  - id: Q19
+    category: conditional
+    question: Can I claim hotel laundry?
+    expected: >-
+      Only on trips of five nights or longer. On shorter trips it is not reimbursable.
+    must_cite: ["6.4"]
+
+  - id: Q20
+    category: conditional
+    question: Can I expense a second checked bag?
+    expected: >-
+      Only for trips of 10 nights or longer, or where you are carrying company
+      equipment. Otherwise just one checked bag is reimbursable.
+    must_cite: ["4.4"]
+
+  - id: Q21
+    category: conditional
+    question: Can I book a hotel above the nightly cap for a conference?
+    expected: >-
+      Yes, in two ways. If you are staying at the conference venue and cheaper
+      compliant options are more than 30 minutes away, you may exceed the cap by
+      up to 25% without extra approval. Separately, a negotiated conference room
+      block may be booked at the block rate even if it exceeds the cap, provided
+      the block rate is documented — this is an explicit exception to the cap.
+    must_cite: ["6.2", "6.3", "6.1"]
+
+  # ------------------------------------------------------------- precedence ---
+  - id: Q22
+    category: precedence
+    question: >-
+      My Department Head and Finance Business Partner approved an exception in
+      writing for a hotel above the cap. Does the cap still apply?
+    expected: >-
+      No. A written exception approved under 13.1 overrides caps and
+      entitlements in sections 4 to 12. It does not override local statutory
+      requirements, which rank higher in the order of precedence.
+    must_cite: ["13.1", "13.2"]
+
+  - id: Q23
+    category: precedence
+    question: I have a documented medical condition. Do I need per-trip approval for a higher cabin class?
+    expected: >-
+      No. Medical and accessibility accommodations are arranged confidentially
+      through HR as standing exceptions and do not require per-trip approval;
+      the advance-approval requirement in 13.1 does not apply to them.
+    must_cite: ["13.3", "13.1"]
+
+  # ---------------------------------------------------------- underspecified ---
+  - id: Q24
+    category: underspecified
+    question: Can I fly business class?
+    expected: >-
+      It depends on both your grade band and the flight duration, so the system
+      should ask for those rather than guess. Business is available to Band 3 on
+      legs over 10 hours, to Band 4-5 on legs over 6 hours, and to Band 6 on all
+      flights.
+    must_cite: ["4.2"]
+    requires_clarification: true
+
+  - id: Q25
+    category: underspecified
+    question: What's my per diem?
+    expected: >-
+      Depends on the destination city tier; the system should ask which city
+      rather than pick one. Rates run from USD 110 (Tier 1) down to USD 55 (Tier 4).
+    must_cite: ["7.2"]
+    requires_clarification: true
+
+  # ----------------------------------------------------------- out of scope ---
+  - id: Q26
+    category: out_of_scope
+    question: Does the company pay for my visa application?
+    expected: >-
+      Not covered by this policy. Immigration, visa sponsorship and work permits
+      are governed by NW-POL-HR-019 Global Mobility.
+    must_cite: ["1.3"]
+    must_refuse: true
+
+  - id: Q27
+    category: out_of_scope
+    question: What's the relocation allowance if I move to the Singapore office?
+    expected: >-
+      Not covered by this policy. Relocation and permanent transfer costs are
+      governed by NW-POL-HR-011 Relocation.
+    must_cite: ["1.3"]
+    must_refuse: true
+
+  - id: Q28
+    category: out_of_scope
+    question: Is Lagos a high-risk destination?
+    expected: >-
+      This policy does not list risk ratings. The rated-destination list is
+      maintained in the Travel Portal and explicitly not reproduced in the
+      policy. Travel to High or Extreme rated destinations needs Security Team
+      clearance at least 10 working days before departure.
+    must_cite: ["9.4"]
+    must_refuse: true
+    notes: >-
+      The hardest refusal — the policy discusses high-risk destinations at
+      length but deliberately withholds the list. A hallucinating system will
+      invent a rating.
+
+  - id: Q29
+    category: out_of_scope
+    question: How much can I spend taking a client to dinner?
+    expected: >-
+      Not covered by this policy. Client entertainment is governed by
+      NW-POL-FIN-007 Anti-Bribery and Entertainment. The USD 75 per attendee cap
+      in 7.5 applies to hosting Northwind employees, not clients.
+    must_cite: ["1.3", "7.5"]
+    must_refuse: true
+    notes: Distractor — 7.5 looks like an answer but governs internal team meals only.
+
+  - id: Q30
+    category: out_of_scope
+    question: What is the company's parental leave entitlement?
+    expected: Entirely unrelated to travel policy. The system must decline and not speculate.
+    must_cite: []
+    must_refuse: true
