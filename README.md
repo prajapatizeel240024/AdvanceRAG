@@ -8,6 +8,8 @@ Python + LangGraph backend, React frontend, and a PostgreSQL database that owns
 the retrieval mathematics, the cost accounting and the tenant isolation rather
 than delegating them to application code.
 
+![Travel Policy RAG — system architecture](docs/images/architecture.png)
+
 ---
 
 ## The one-minute version
@@ -150,6 +152,10 @@ per-diem figure that is wrong, and someone books against it.
 ---
 
 ## Architecture
+
+The full system diagram is at the top of this page
+([PNG](docs/images/architecture.png) · [SVG](docs/images/architecture.svg)).
+The query path in detail:
 
 ```
   Browser (React + Vite)

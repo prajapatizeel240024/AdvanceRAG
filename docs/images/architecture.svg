@@ -1,0 +1,252 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1480" viewBox="0 0 1600 1480">
+<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#475569"/></marker></defs>
+<rect x="0" y="0" width="1600" height="1480" rx="0" fill="#ffffff" stroke="#e2e8f0" stroke-width="0"/>
+<text x="40" y="56" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="30" fill="#0f172a" font-weight="bold" text-anchor="start">Travel Policy RAG — System Architecture</text>
+<text x="40" y="86" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="15" fill="#475569" font-weight="normal" text-anchor="start">Grounded answers with clause-level citations over a corporate travel policy.  Retrieval maths, cost accounting and tenant isolation live in PostgreSQL; the API stays thin.</text>
+<rect x="40" y="112" width="1520" height="132" rx="16" fill="#eff6ff" stroke="#3b82f6" stroke-width="2"/>
+<circle cx="70" cy="142" r="13" fill="#3b82f6"/>
+<text x="70" y="147" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="14" fill="#ffffff" font-weight="bold" text-anchor="middle">1</text>
+<text x="92" y="148" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="19" fill="#1e3a8a" font-weight="bold" text-anchor="start">Browser — React 19 · Vite 8 · Tailwind 4</text>
+<text x="1536" y="148" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="13" fill="#1e40af" font-weight="normal" text-anchor="end">web/  ·  dev server :5173  ·  proxies /api → http://127.0.0.1:8000</text>
+<rect x="64" y="168" width="108.086" height="30" rx="7" fill="#ffffff" stroke="#93c5fd" stroke-width="1.2"/>
+<text x="118.043" y="187.68" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="13" fill="#0f172a" font-weight="normal" text-anchor="middle">AnswerPanel</text>
+<rect x="184.086" y="168" width="115.91199999999999" height="30" rx="7" fill="#ffffff" stroke="#93c5fd" stroke-width="1.2"/>
+<text x="242.042" y="187.68" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="13" fill="#0f172a" font-weight="normal" text-anchor="middle">SourcesPanel</text>
+<rect x="311.998" y="168" width="92.434" height="30" rx="7" fill="#ffffff" stroke="#93c5fd" stroke-width="1.2"/>
+<text x="358.215" y="187.68" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="13" fill="#0f172a" font-weight="normal" text-anchor="middle">CostMeter</text>
+<rect x="416.432" y="168" width="139.39" height="30" rx="7" fill="#ffffff" stroke="#93c5fd" stroke-width="1.2"/>
+<text x="486.127" y="187.68" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="13" fill="#0f172a" font-weight="normal" text-anchor="middle">ProvenancePanel</text>
+<rect x="567.822" y="168" width="123.738" height="30" rx="7" fill="#ffffff" stroke="#93c5fd" stroke-width="1.2"/>
+<text x="629.691" y="187.68" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="13" fill="#0f172a" font-weight="normal" text-anchor="middle">DocumentPanel</text>
+<rect x="703.56" y="168" width="436.77799999999996" height="30" rx="7" fill="#ffffff" stroke="#93c5fd" stroke-width="1.2"/>
+<text x="921.949" y="187.68" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="13" fill="#0f172a" font-weight="normal" text-anchor="middle">lib/useAskStream.ts — SSE over fetch + ReadableStream</text>
+<text x="64" y="224" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="13" fill="#334155" font-weight="normal" text-anchor="start">Ask a question → watch the pipeline stages → read the streamed, cited answer → open a citation&#x27;s source clause → inspect the run&#x27;s cost and full provenance.</text>
+<polyline points="640,246 640,302" fill="none" stroke="#475569" stroke-width="1.8" marker-end="url(#ah)"/>
+<text x="652" y="274" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="12.5" fill="#334155" font-weight="normal" text-anchor="start">POST /api/ask {question}   ·   GET /api/*</text>
+<polyline points="560,300 560,248" fill="none" stroke="#475569" stroke-width="1.8" marker-end="url(#ah)"/>
+<text x="548" y="274" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="12.5" fill="#334155" font-weight="normal" text-anchor="end">text/event-stream: stage · token · citations · cost · done · error</text>
+<rect x="40" y="304" width="1520" height="176" rx="16" fill="#f5f3ff" stroke="#8b5cf6" stroke-width="2"/>
+<circle cx="70" cy="334" r="13" fill="#8b5cf6"/>
+<text x="70" y="339" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="14" fill="#ffffff" font-weight="bold" text-anchor="middle">2</text>
+<text x="92" y="340" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="19" fill="#4c1d95" font-weight="bold" text-anchor="start">FastAPI — backend/app/main.py</text>
+<text x="1536" y="340" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="13.5" fill="#5b21b6" font-weight="normal" text-anchor="end" font-style="italic">thin by design:  validate → set tenant GUC → drive the pipeline → serialise events</text>
+<rect x="64" y="358" width="139.39" height="30" rx="7" fill="#ffffff" stroke="#c4b5fd" stroke-width="1.2"/>
+<text x="133.695" y="377.68" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="13" fill="#0f172a" font-weight="normal" text-anchor="middle">GET /api/health</text>
+<rect x="215.39" y="358" width="139.39" height="30" rx="7" fill="#ffffff" stroke="#c4b5fd" stroke-width="1.2"/>
+<text x="285.085" y="377.68" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="13" fill="#0f172a" font-weight="normal" text-anchor="middle">GET /api/config</text>
+<rect x="366.78" y="358" width="162.868" height="30" rx="7" fill="#ffffff" stroke="#c4b5fd" stroke-width="1.2"/>
+<text x="448.21399999999994" y="377.68" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="13" fill="#0f172a" font-weight="normal" text-anchor="middle">GET /api/documents</text>
+<rect x="541.6479999999999" y="358" width="241.128" height="30" rx="7" fill="#ffffff" stroke="#c4b5fd" stroke-width="1.2"/>
+<text x="662.2119999999999" y="377.68" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="13" fill="#0f172a" font-weight="normal" text-anchor="middle">POST /api/documents/estimate</text>
+<rect x="794.7759999999998" y="358" width="225.476" height="30" rx="7" fill="#ffffff" stroke="#c4b5fd" stroke-width="1.2"/>
+<text x="907.5139999999999" y="377.68" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="13" fill="#0f172a" font-weight="normal" text-anchor="middle">POST /api/documents/ingest</text>
+<rect x="64" y="398" width="178.51999999999998" height="30" rx="7" fill="#ede9fe" stroke="#c4b5fd" stroke-width="1.2"/>
+<text x="153.26" y="417.68" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="13" fill="#0f172a" font-weight="normal" text-anchor="middle">POST /api/ask  (SSE)</text>
+<rect x="254.51999999999998" y="398" width="123.738" height="30" rx="7" fill="#ffffff" stroke="#c4b5fd" stroke-width="1.2"/>
+<text x="316.389" y="417.68" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="13" fill="#0f172a" font-weight="normal" text-anchor="middle">GET /api/runs</text>
+<rect x="390.258" y="398" width="280.258" height="30" rx="7" fill="#ffffff" stroke="#c4b5fd" stroke-width="1.2"/>
+<text x="530.387" y="417.68" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="13" fill="#0f172a" font-weight="normal" text-anchor="middle">GET /api/runs/{run_id}/provenance</text>
+<rect x="682.516" y="398" width="194.172" height="30" rx="7" fill="#ffffff" stroke="#c4b5fd" stroke-width="1.2"/>
+<text x="779.602" y="417.68" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="13" fill="#0f172a" font-weight="normal" text-anchor="middle">GET /api/costs/summary</text>
+<text x="64" y="458" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12.5" fill="#4c1d95" font-weight="normal" text-anchor="start">startup: register config/*.yaml → pin config bundle   ·   api/deps.py: current_principal → (tenant_id, user_id)   ·   db/pool.py: asyncpg pool connecting as rag_app (NOSUPERUSER, NOBYPASSRLS)</text>
+<polyline points="300,482 300,538" fill="none" stroke="#475569" stroke-width="1.8" marker-end="url(#ah)"/>
+<text x="312" y="516" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="12.5" fill="#334155" font-weight="normal" text-anchor="start">POST /api/ask drives the pipeline</text>
+<polyline points="1300,482 1300,538" fill="none" stroke="#475569" stroke-width="1.8" marker-end="url(#ah)"/>
+<text x="1288" y="516" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="12.5" fill="#334155" font-weight="normal" text-anchor="end">POST /api/documents/estimate · ingest</text>
+<rect x="40" y="540" width="600" height="560" rx="16" fill="#f0fdfa" stroke="#14b8a6" stroke-width="2"/>
+<circle cx="70" cy="570" r="13" fill="#14b8a6"/>
+<text x="70" y="575" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="14" fill="#ffffff" font-weight="bold" text-anchor="middle">3</text>
+<text x="92" y="576" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="19" fill="#134e4a" font-weight="bold" text-anchor="start">Query pipeline — LangGraph</text>
+<text x="92" y="598" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="12.5" fill="#134e4a" font-weight="normal" text-anchor="start">backend/app/graph · every node instrumented</text>
+<rect x="60" y="624" width="280" height="40" rx="8" fill="#ffffff" stroke="#5eead4" stroke-width="1.3"/>
+<text x="72" y="641" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="14" fill="#134e4a" font-weight="bold" text-anchor="start">guard</text>
+<text x="72" y="657" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11.5" fill="#334155" font-weight="normal" text-anchor="start">trim · reject empty or &gt; 2000 chars</text>
+<rect x="60" y="674" width="280" height="40" rx="8" fill="#ffffff" stroke="#5eead4" stroke-width="1.3"/>
+<text x="72" y="691" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="14" fill="#134e4a" font-weight="bold" text-anchor="start">cache_lookup</text>
+<text x="72" y="707" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11.5" fill="#334155" font-weight="normal" text-anchor="start">exact hash, then semantic ≥ 0.97</text>
+<polyline points="200.0,665 200.0,673" fill="none" stroke="#14b8a6" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="60" y="724" width="280" height="40" rx="8" fill="#ffffff" stroke="#5eead4" stroke-width="1.3"/>
+<text x="72" y="741" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="14" fill="#134e4a" font-weight="bold" text-anchor="start">route</text>
+<text x="72" y="757" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11.5" fill="#334155" font-weight="normal" text-anchor="start">intent + metadata filter · Opus 5 (low)</text>
+<polyline points="200.0,715 200.0,723" fill="none" stroke="#14b8a6" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="60" y="774" width="280" height="40" rx="8" fill="#ffffff" stroke="#5eead4" stroke-width="1.3"/>
+<text x="72" y="791" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="14" fill="#134e4a" font-weight="bold" text-anchor="start">translate</text>
+<text x="72" y="807" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11.5" fill="#334155" font-weight="normal" text-anchor="start">multi-query + step-back · Opus 5 (low)</text>
+<polyline points="200.0,765 200.0,773" fill="none" stroke="#14b8a6" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="60" y="824" width="280" height="40" rx="8" fill="#ffffff" stroke="#5eead4" stroke-width="1.3"/>
+<text x="72" y="841" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="14" fill="#134e4a" font-weight="bold" text-anchor="start">retrieve</text>
+<text x="72" y="857" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11.5" fill="#334155" font-weight="normal" text-anchor="start">SQL: vector + lexical → RRF → MMR → expand</text>
+<polyline points="200.0,815 200.0,823" fill="none" stroke="#14b8a6" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="60" y="874" width="280" height="40" rx="8" fill="#ecfeff" stroke="#5eead4" stroke-width="1.3"/>
+<text x="72" y="891" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="14" fill="#134e4a" font-weight="bold" text-anchor="start">rerank</text>
+<text x="72" y="907" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11.5" fill="#334155" font-weight="normal" text-anchor="start">listwise relevance · Opus 5 (high)</text>
+<polyline points="200.0,865 200.0,873" fill="none" stroke="#14b8a6" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="60" y="924" width="280" height="40" rx="8" fill="#ecfeff" stroke="#5eead4" stroke-width="1.3"/>
+<text x="72" y="941" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="14" fill="#134e4a" font-weight="bold" text-anchor="start">generate</text>
+<text x="72" y="957" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11.5" fill="#334155" font-weight="normal" text-anchor="start">cited answer, token-streamed · Opus 5 (high)</text>
+<polyline points="200.0,915 200.0,923" fill="none" stroke="#14b8a6" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="60" y="974" width="280" height="40" rx="8" fill="#ffffff" stroke="#5eead4" stroke-width="1.3"/>
+<text x="72" y="991" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="14" fill="#134e4a" font-weight="bold" text-anchor="start">verify</text>
+<text x="72" y="1007" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11.5" fill="#334155" font-weight="normal" text-anchor="start">regex citation check · no LLM call</text>
+<polyline points="200.0,965 200.0,973" fill="none" stroke="#14b8a6" stroke-width="1.6" marker-end="url(#ah)"/>
+<polyline points="200.0,1015 200.0,1027" fill="none" stroke="#14b8a6" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="164.0" y="1028" width="72" height="24" rx="12" fill="#134e4a" stroke="#134e4a" stroke-width="1.5"/>
+<text x="200.0" y="1045" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="12" fill="#ffffff" font-weight="bold" text-anchor="middle">END</text>
+<rect x="470" y="674.0" width="150" height="40" rx="8" fill="#f0fdf4" stroke="#4ade80" stroke-width="1.3"/>
+<text x="545.0" y="692.0" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="13.5" fill="#14532d" font-weight="bold" text-anchor="middle">cached answer</text>
+<text x="545.0" y="708.0" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11" fill="#14532d" font-weight="normal" text-anchor="middle">→ END</text>
+<polyline points="340,694.0 468,694.0" fill="none" stroke="#16a34a" stroke-width="1.5" marker-end="url(#ah)"/>
+<text x="367" y="688.0" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="11" fill="#166534" font-weight="normal" text-anchor="start">hit</text>
+<rect x="470" y="724.0" width="150" height="40" rx="8" fill="#fffbeb" stroke="#fbbf24" stroke-width="1.3"/>
+<text x="545.0" y="742.0" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="13.5" fill="#78350f" font-weight="bold" text-anchor="middle">clarify</text>
+<text x="545.0" y="758.0" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11" fill="#78350f" font-weight="normal" text-anchor="middle">ask, don&#x27;t guess → END</text>
+<polyline points="340,738.0 468,738.0" fill="none" stroke="#d97706" stroke-width="1.5" marker-end="url(#ah)"/>
+<text x="367" y="732.0" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="10.5" fill="#92400e" font-weight="normal" text-anchor="start">underspecified</text>
+<rect x="470" y="814.0" width="150" height="110.0" rx="8" fill="#fef2f2" stroke="#f87171" stroke-width="1.3"/>
+<text x="545.0" y="863.0" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="13.5" fill="#7f1d1d" font-weight="bold" text-anchor="middle">refuse</text>
+<text x="545.0" y="879.0" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11" fill="#7f1d1d" font-weight="normal" text-anchor="middle">honest “not covered”</text>
+<text x="545.0" y="894.0" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11" fill="#7f1d1d" font-weight="normal" text-anchor="middle">→ END</text>
+<polyline points="340,752.0 362,752.0 362,828.0 468,828.0" fill="none" stroke="#dc2626" stroke-width="1.5" marker-end="url(#ah)"/>
+<text x="367" y="798.0" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="10.5" fill="#991b1b" font-weight="normal" text-anchor="start">chitchat</text>
+<polyline points="340,850.0 468,850.0" fill="none" stroke="#dc2626" stroke-width="1.5" marker-end="url(#ah)"/>
+<text x="367" y="845.0" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="10.5" fill="#991b1b" font-weight="normal" text-anchor="start">0 candidates</text>
+<polyline points="340,894.0 468,894.0" fill="none" stroke="#dc2626" stroke-width="1.5" marker-end="url(#ah)"/>
+<text x="367" y="889.0" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="10.5" fill="#991b1b" font-weight="normal" text-anchor="start">none ≥ floor</text>
+<text x="60" y="1084" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11.5" fill="#115e59" font-weight="normal" text-anchor="start" font-style="italic">out_of_scope still retrieves: citing the section that points elsewhere beats a bare “no”.</text>
+<polyline points="642,790 688,790" fill="none" stroke="#475569" stroke-width="1.8" marker-end="url(#ah)"/>
+<text x="665.0" y="782" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="11" fill="#334155" font-weight="normal" text-anchor="middle">roles</text>
+<rect x="690" y="540" width="300" height="560" rx="16" fill="#fdf2f8" stroke="#ec4899" stroke-width="2"/>
+<circle cx="720" cy="570" r="13" fill="#ec4899"/>
+<text x="720" y="575" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="14" fill="#ffffff" font-weight="bold" text-anchor="middle">4</text>
+<text x="742" y="576" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="19" fill="#831843" font-weight="bold" text-anchor="start">Model providers</text>
+<text x="742" y="598" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="12.5" fill="#831843" font-weight="normal" text-anchor="start">backend/app/providers</text>
+<rect x="706" y="620" width="268" height="200" rx="10" fill="#ffffff" stroke="#f9a8d4" stroke-width="1.2"/>
+<text x="720" y="646" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="15.5" fill="#831843" font-weight="bold" text-anchor="start">Anthropic</text>
+<text x="720" y="668" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="13.5" fill="#0f172a" font-weight="bold" text-anchor="start">claude-opus-5</text>
+<text x="720" y="694" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" fill="#334155" font-weight="normal" text-anchor="start">• routing · query_translation  (low)</text>
+<text x="720" y="716" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" fill="#334155" font-weight="normal" text-anchor="start">• rerank · generation  (high)</text>
+<text x="720" y="738" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" fill="#334155" font-weight="normal" text-anchor="start">• contextualisation  (ingest, low)</text>
+<text x="720" y="760" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" fill="#334155" font-weight="normal" text-anchor="start">• adaptive thinking · prompt caching</text>
+<text x="720" y="782" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" fill="#334155" font-weight="normal" text-anchor="start">• token streaming for generation</text>
+<rect x="706" y="836" width="268" height="170" rx="10" fill="#ffffff" stroke="#f9a8d4" stroke-width="1.2"/>
+<text x="720" y="862" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="15.5" fill="#831843" font-weight="bold" text-anchor="start">Google Gemini</text>
+<text x="720" y="884" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="13.5" fill="#0f172a" font-weight="bold" text-anchor="start">gemini-embedding-001</text>
+<text x="720" y="908" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" fill="#334155" font-weight="normal" text-anchor="start">• 1536-d (MRL-truncated from 3072,</text>
+<text x="720" y="928" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" fill="#334155" font-weight="normal" text-anchor="start">  re-normalised to unit length)</text>
+<text x="720" y="948" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" fill="#334155" font-weight="normal" text-anchor="start">• RETRIEVAL_DOCUMENT vs _QUERY</text>
+<text x="720" y="968" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" fill="#334155" font-weight="normal" text-anchor="start">• target: gemini-3.8-flash for</text>
+<text x="720" y="988" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" fill="#334155" font-weight="normal" text-anchor="start">  routing · translation · context</text>
+<text x="710" y="1030" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11.5" fill="#831843" font-weight="normal" text-anchor="start" font-style="italic">role → model resolved from config/models.yaml</text>
+<text x="710" y="1048" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11.5" fill="#831843" font-weight="normal" text-anchor="start" font-style="italic">every billable call → one cost_ledger row</text>
+<polyline points="1038,690 992,690" fill="none" stroke="#475569" stroke-width="1.8" marker-end="url(#ah)"/>
+<text x="1015.0" y="682" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="11" fill="#334155" font-weight="normal" text-anchor="middle">calls</text>
+<rect x="1040" y="540" width="520" height="300" rx="16" fill="#fffbeb" stroke="#f59e0b" stroke-width="2"/>
+<circle cx="1070" cy="570" r="13" fill="#f59e0b"/>
+<text x="1070" y="575" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="14" fill="#ffffff" font-weight="bold" text-anchor="middle">5</text>
+<text x="1092" y="576" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="19" fill="#78350f" font-weight="bold" text-anchor="start">Ingestion pipeline</text>
+<text x="1092" y="598" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="12.5" fill="#78350f" font-weight="normal" text-anchor="start">backend/app/ingest · scripts/ingest.py</text>
+<rect x="1060" y="620" width="26" height="26" rx="13" fill="#f59e0b" stroke="#f59e0b" stroke-width="1.5"/>
+<text x="1073" y="638" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="13" fill="#ffffff" font-weight="bold" text-anchor="middle">1</text>
+<text x="1096" y="638" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="13.5" fill="#78350f" font-weight="bold" text-anchor="start">parse + chunk</text>
+<text x="1230" y="638" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12.5" fill="#334155" font-weight="normal" text-anchor="start">structure-aware; tables stay whole</text>
+<rect x="1060" y="654" width="26" height="26" rx="13" fill="#f59e0b" stroke="#f59e0b" stroke-width="1.5"/>
+<text x="1073" y="672" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="13" fill="#ffffff" font-weight="bold" text-anchor="middle">2</text>
+<text x="1096" y="672" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="13.5" fill="#78350f" font-weight="bold" text-anchor="start">estimate</text>
+<text x="1230" y="672" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12.5" fill="#334155" font-weight="normal" text-anchor="start">price recorded before any spend · no keys needed</text>
+<rect x="1060" y="688" width="26" height="26" rx="13" fill="#f59e0b" stroke="#f59e0b" stroke-width="1.5"/>
+<text x="1073" y="706" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="13" fill="#ffffff" font-weight="bold" text-anchor="middle">3</text>
+<text x="1096" y="706" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="13.5" fill="#78350f" font-weight="bold" text-anchor="start">contextualise</text>
+<text x="1230" y="706" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12.5" fill="#334155" font-weight="normal" text-anchor="start">Opus 5, document in cached prefix (optional)</text>
+<rect x="1060" y="722" width="26" height="26" rx="13" fill="#f59e0b" stroke="#f59e0b" stroke-width="1.5"/>
+<text x="1073" y="740" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="13" fill="#ffffff" font-weight="bold" text-anchor="middle">4</text>
+<text x="1096" y="740" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="13.5" fill="#78350f" font-weight="bold" text-anchor="start">store chunks</text>
+<text x="1230" y="740" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12.5" fill="#334155" font-weight="normal" text-anchor="start">content-addressed by sha256</text>
+<rect x="1060" y="756" width="26" height="26" rx="13" fill="#f59e0b" stroke="#f59e0b" stroke-width="1.5"/>
+<text x="1073" y="774" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="13" fill="#ffffff" font-weight="bold" text-anchor="middle">5</text>
+<text x="1096" y="774" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="13.5" fill="#78350f" font-weight="bold" text-anchor="start">reuse</text>
+<text x="1230" y="774" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12.5" fill="#334155" font-weight="normal" text-anchor="start">copy forward embeddings of unchanged chunks</text>
+<rect x="1060" y="790" width="26" height="26" rx="13" fill="#f59e0b" stroke="#f59e0b" stroke-width="1.5"/>
+<text x="1073" y="808" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="13" fill="#ffffff" font-weight="bold" text-anchor="middle">6</text>
+<text x="1096" y="808" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="13.5" fill="#78350f" font-weight="bold" text-anchor="start">embed</text>
+<text x="1230" y="808" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12.5" fill="#334155" font-weight="normal" text-anchor="start">only new chunks · gemini-embedding-001 → vector(1536)</text>
+<rect x="1040" y="860" width="520" height="240" rx="16" fill="#f8fafc" stroke="#64748b" stroke-width="2"/>
+<circle cx="1070" cy="890" r="13" fill="#64748b"/>
+<text x="1070" y="895" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="14" fill="#ffffff" font-weight="bold" text-anchor="middle">6</text>
+<text x="1092" y="896" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="19" fill="#1e293b" font-weight="bold" text-anchor="start">Versioned configuration</text>
+<text x="1092" y="918" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="12.5" fill="#1e293b" font-weight="normal" text-anchor="start">config/*.yaml → backend/app/config/registry.py</text>
+<rect x="1060" y="934" width="196" height="112" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.2"/>
+<text x="1074" y="956" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="12" fill="#1e293b" font-weight="normal" text-anchor="start">models.yaml</text>
+<text x="1074" y="976" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="12" fill="#1e293b" font-weight="normal" text-anchor="start">costs.yaml</text>
+<text x="1074" y="996" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="12" fill="#1e293b" font-weight="normal" text-anchor="start">retrieval.yaml</text>
+<text x="1074" y="1016" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="12" fill="#1e293b" font-weight="normal" text-anchor="start">chunking.yaml</text>
+<text x="1074" y="1036" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="12" fill="#1e293b" font-weight="normal" text-anchor="start">prompts/*.yaml  (×5)</text>
+<polyline points="1258,990 1284,990" fill="none" stroke="#64748b" stroke-width="1.5" marker-end="url(#ah)"/>
+<rect x="1290" y="936" width="250" height="24" rx="6" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.1"/>
+<text x="1302" y="952.5" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" font-weight="normal" text-anchor="start">canonicalise  (sorted keys, LF)</text>
+<rect x="1290" y="964" width="250" height="24" rx="6" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.1"/>
+<text x="1302" y="980.5" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" font-weight="normal" text-anchor="start">sha256 per file → config_file_versions</text>
+<rect x="1290" y="992" width="250" height="24" rx="6" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.1"/>
+<text x="1302" y="1008.5" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" font-weight="normal" text-anchor="start">combined hash → config_bundles</text>
+<rect x="1290" y="1020" width="250" height="24" rx="6" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.1"/>
+<text x="1302" y="1036.5" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" font-weight="normal" text-anchor="start">every run records its bundle</text>
+<text x="1060" y="1068" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" fill="#334155" font-weight="normal" text-anchor="start">Code asks for a role, never a model — switching models is a YAML edit.</text>
+<text x="1060" y="1086" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" fill="#334155" font-weight="normal" text-anchor="start">GET /api/runs/{id}/provenance → exact prompts, models and YAML of any run.</text>
+<polyline points="300,1102 300,1158" fill="none" stroke="#475569" stroke-width="1.8" marker-end="url(#ah)"/>
+<text x="312" y="1136" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="12.5" fill="#334155" font-weight="normal" text-anchor="start">fn_cache_lookup · fn_hybrid_search · run_steps · cost_ledger</text>
+<polyline points="1300,1102 1300,1158" fill="none" stroke="#475569" stroke-width="1.8" marker-end="url(#ah)"/>
+<text x="1288" y="1136" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="12.5" fill="#334155" font-weight="normal" text-anchor="end">chunks · chunk_embeddings · config_file_versions</text>
+<rect x="40" y="1160" width="1520" height="290" rx="16" fill="#eef2ff" stroke="#6366f1" stroke-width="2"/>
+<circle cx="70" cy="1190" r="13" fill="#6366f1"/>
+<text x="70" y="1195" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="14" fill="#ffffff" font-weight="bold" text-anchor="middle">7</text>
+<text x="92" y="1196" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="19" fill="#312e81" font-weight="bold" text-anchor="start">PostgreSQL 16 + pgvector 0.8.6</text>
+<text x="1536" y="1196" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="13" fill="#3730a3" font-weight="normal" text-anchor="end">migrations/001–007  ·  scripts/migrate.sh</text>
+<text x="420" y="1196" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="14" fill="#3730a3" font-weight="normal" text-anchor="start" font-style="italic">the database owns retrieval maths, cost accounting and tenant isolation</text>
+<rect x="60.0" y="1216" width="235.0" height="194" rx="10" fill="#ffffff" stroke="#a5b4fc" stroke-width="1.2"/>
+<text x="74.0" y="1240" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="14" fill="#312e81" font-weight="bold" text-anchor="start">Tenancy · RLS</text>
+<text x="74.0" y="1264" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="12.5" fill="#1e293b" font-weight="normal" text-anchor="start">tenants</text>
+<text x="74.0" y="1283" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="12.5" fill="#1e293b" font-weight="normal" text-anchor="start">users</text>
+<text x="74.0" y="1302" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="12.5" fill="#1e293b" font-weight="normal" text-anchor="start">RLS policies keyed on</text>
+<text x="86.0" y="1321" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11.5" fill="#64748b" font-weight="normal" text-anchor="start">the tenant GUC</text>
+<text x="74.0" y="1340" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="12.5" fill="#1e293b" font-weight="normal" text-anchor="start">app role rag_app:</text>
+<text x="86.0" y="1359" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11.5" fill="#64748b" font-weight="normal" text-anchor="start">NOSUPERUSER NOBYPASSRLS</text>
+<rect x="309.0" y="1216" width="235.0" height="194" rx="10" fill="#ffffff" stroke="#a5b4fc" stroke-width="1.2"/>
+<text x="323.0" y="1240" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="14" fill="#312e81" font-weight="bold" text-anchor="start">Config · provenance</text>
+<text x="323.0" y="1264" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="12.5" fill="#1e293b" font-weight="normal" text-anchor="start">config_file_versions</text>
+<text x="323.0" y="1283" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="12.5" fill="#1e293b" font-weight="normal" text-anchor="start">config_bundles</text>
+<text x="323.0" y="1302" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="12.5" fill="#1e293b" font-weight="normal" text-anchor="start">prompt_versions</text>
+<text x="323.0" y="1321" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="12.5" fill="#1e293b" font-weight="normal" text-anchor="start">model_versions</text>
+<text x="323.0" y="1340" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="12.5" fill="#1e293b" font-weight="normal" text-anchor="start">role_assignments</text>
+<text x="323.0" y="1359" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="12.5" fill="#1e293b" font-weight="normal" text-anchor="start">model_prices</text>
+<rect x="558.0" y="1216" width="235.0" height="194" rx="10" fill="#ffffff" stroke="#a5b4fc" stroke-width="1.2"/>
+<text x="572.0" y="1240" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="14" fill="#312e81" font-weight="bold" text-anchor="start">Documents · chunks</text>
+<text x="572.0" y="1264" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="12.5" fill="#1e293b" font-weight="normal" text-anchor="start">documents</text>
+<text x="572.0" y="1283" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="12.5" fill="#1e293b" font-weight="normal" text-anchor="start">document_versions</text>
+<text x="572.0" y="1302" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="12.5" fill="#1e293b" font-weight="normal" text-anchor="start">chunks</text>
+<text x="584.0" y="1321" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11.5" fill="#64748b" font-weight="normal" text-anchor="start">tsvector GIN + trigram</text>
+<text x="572.0" y="1340" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="12.5" fill="#1e293b" font-weight="normal" text-anchor="start">chunk_embeddings</text>
+<text x="584.0" y="1359" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11.5" fill="#64748b" font-weight="normal" text-anchor="start">vector(1536) · HNSW</text>
+<rect x="807.0" y="1216" width="235.0" height="194" rx="10" fill="#ffffff" stroke="#a5b4fc" stroke-width="1.2"/>
+<text x="821.0" y="1240" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="14" fill="#312e81" font-weight="bold" text-anchor="start">Retrieval functions</text>
+<text x="821.0" y="1264" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="12.5" fill="#1e293b" font-weight="normal" text-anchor="start">fn_vector_search</text>
+<text x="821.0" y="1283" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="12.5" fill="#1e293b" font-weight="normal" text-anchor="start">fn_lexical_search</text>
+<text x="821.0" y="1302" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="12.5" fill="#1e293b" font-weight="normal" text-anchor="start">fn_hybrid_search (RRF)</text>
+<text x="821.0" y="1321" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="12.5" fill="#1e293b" font-weight="normal" text-anchor="start">fn_mmr_diversify</text>
+<text x="821.0" y="1340" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="12.5" fill="#1e293b" font-weight="normal" text-anchor="start">fn_expand_context</text>
+<rect x="1056.0" y="1216" width="235.0" height="194" rx="10" fill="#ffffff" stroke="#a5b4fc" stroke-width="1.2"/>
+<text x="1070.0" y="1240" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="14" fill="#312e81" font-weight="bold" text-anchor="start">Runs · cost · budget</text>
+<text x="1070.0" y="1264" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="12.5" fill="#1e293b" font-weight="normal" text-anchor="start">query_runs · ingestion_runs</text>
+<text x="1070.0" y="1283" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="12.5" fill="#1e293b" font-weight="normal" text-anchor="start">run_steps</text>
+<text x="1070.0" y="1302" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="12.5" fill="#1e293b" font-weight="normal" text-anchor="start">retrieval_results</text>
+<text x="1070.0" y="1321" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="12.5" fill="#1e293b" font-weight="normal" text-anchor="start">cost_ledger</text>
+<text x="1082.0" y="1340" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11.5" fill="#64748b" font-weight="normal" text-anchor="start">cost_usd = generated col</text>
+<text x="1070.0" y="1359" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="12.5" fill="#1e293b" font-weight="normal" text-anchor="start">tenant_budgets + trigger</text>
+<rect x="1305.0" y="1216" width="235.0" height="194" rx="10" fill="#ffffff" stroke="#a5b4fc" stroke-width="1.2"/>
+<text x="1319.0" y="1240" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="14" fill="#312e81" font-weight="bold" text-anchor="start">Views · answer cache</text>
+<text x="1319.0" y="1264" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="12.5" fill="#1e293b" font-weight="normal" text-anchor="start">v_run_provenance</text>
+<text x="1319.0" y="1283" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="12.5" fill="#1e293b" font-weight="normal" text-anchor="start">v_cost_per_query</text>
+<text x="1319.0" y="1302" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="12.5" fill="#1e293b" font-weight="normal" text-anchor="start">v_cost_by_node / _by_user</text>
+<text x="1319.0" y="1321" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="12.5" fill="#1e293b" font-weight="normal" text-anchor="start">v_run_cost_breakdown</text>
+<text x="1319.0" y="1340" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="12.5" fill="#1e293b" font-weight="normal" text-anchor="start">answer_cache</text>
+<text x="1319.0" y="1359" font-family="Menlo, SFMono-Regular, Consolas, monospace" font-size="12.5" fill="#1e293b" font-weight="normal" text-anchor="start">fn_cache_lookup</text>
+<text x="60" y="1434" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12.5" fill="#3730a3" font-weight="normal" text-anchor="start">Read endpoints (/api/runs, /api/runs/{id}/provenance, /api/costs/summary, /api/documents) query these views directly — no ranking, cost maths or aggregation in Python.</text>
+</svg>
